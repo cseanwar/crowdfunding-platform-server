@@ -9,7 +9,7 @@ router.get('/my', auth, creator, async (req, res) => {
   try {
     const db = req.app.locals.db;
     const withdrawals = await db.collection('withdrawals')
-      .find({ creator: req.user._id.toString() })
+      .find({ creator: req.user.id })
       .sort({ createdAt: -1 }).toArray();
     res.json(withdrawals);
   } catch (err) {
@@ -34,14 +34,14 @@ router.post('/', auth, creator, async (req, res) => {
     const { credits, amount, paymentSystem, account } = req.body;
 
     const campaigns = await db.collection('campaigns')
-      .find({ creator: req.user._id.toString(), status: 'approved' }).toArray();
+      .find({ creator: req.user.id, status: 'approved' }).toArray();
     const totalRaised = campaigns.reduce((sum, c) => sum + c.raised, 0);
 
     if (totalRaised < 200) return res.status(400).json({ message: 'Minimum 200 credits required' });
     if (credits > totalRaised) return res.status(400).json({ message: 'Insufficient credits' });
 
     const withdrawal = {
-      creator: req.user._id.toString(),
+      creator: req.user.id,
       creatorName: req.user.name,
       creatorEmail: req.user.email,
       credits: Number(credits),

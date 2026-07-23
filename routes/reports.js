@@ -11,7 +11,7 @@ router.post('/', auth, supporter, async (req, res) => {
     const { campaignId, reason } = req.body;
     const report = {
       campaign: campaignId,
-      reporter: req.user._id.toString(),
+      reporter: req.user.id,
       reason,
       createdAt: new Date(),
     };

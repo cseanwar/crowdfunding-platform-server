@@ -1,5 +1,4 @@
-const jwt = require('jsonwebtoken');
-const { ObjectId } = require('mongodb');
+const { jwtVerify } = require('jose');
 
 const auth = async (req, res, next) => {
   try {
@@ -8,14 +7,22 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'No token provided' });
     }
     const token = header.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const secret = new TextEncoder().encode(process.env.BETTER_AUTH_SECRET);
+    const { payload } = await jwtVerify(token, secret);
+
     const db = req.app.locals.db;
-    const user = await db.collection('users').findOne(
-      { _id: new ObjectId(decoded.id) },
-      { projection: { password: 0 } }
-    );
+    const user = await db.collection('user').findOne({ id: payload.sub });
     if (!user) return res.status(401).json({ message: 'User not found' });
-    req.user = user;
+
+    req.user = {
+      _id: user.id,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role || 'supporter',
+      credits: user.credits || 0,
+      photo: user.image || '',
+    };
     next();
   } catch (err) {
     res.status(401).json({ message: 'Invalid token' });

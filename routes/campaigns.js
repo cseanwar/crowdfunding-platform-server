@@ -33,7 +33,7 @@ router.get('/my', auth, creator, async (req, res) => {
   try {
     const db = req.app.locals.db;
     const campaigns = await db.collection('campaigns')
-      .find({ creator: req.user._id.toString() })
+      .find({ creator: req.user.id })
       .sort({ deadline: -1 }).toArray();
     res.json(campaigns);
   } catch (err) {
@@ -69,7 +69,7 @@ router.post('/', auth, creator, async (req, res) => {
     const db = req.app.locals.db;
     const doc = {
       ...req.body,
-      creator: req.user._id.toString(),
+      creator: req.user.id,
       creatorName: req.user.name,
       creatorEmail: req.user.email,
       raised: 0,
@@ -91,7 +91,7 @@ router.put('/:id', auth, creator, async (req, res) => {
     const db = req.app.locals.db;
     const campaign = await db.collection('campaigns').findOne({ _id: new ObjectId(req.params.id) });
     if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
-    if (campaign.creator !== req.user._id.toString()) {
+    if (campaign.creator !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized' });
     }
     const update = {};
@@ -114,14 +114,14 @@ router.delete('/:id', auth, async (req, res) => {
     const db = req.app.locals.db;
     const campaign = await db.collection('campaigns').findOne({ _id: new ObjectId(req.params.id) });
     if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
-    if (req.user.role !== 'admin' && campaign.creator !== req.user._id.toString()) {
+    if (req.user.role !== 'admin' && campaign.creator !== req.user.id) {
       return res.status(403).json({ message: 'Not authorized' });
     }
     const approved = await db.collection('contributions')
       .find({ campaign: req.params.id, status: 'approved' }).toArray();
     for (const c of approved) {
-      await db.collection('users').updateOne(
-        { _id: new ObjectId(c.supporter) },
+      await db.collection('user').updateOne(
+        { id: c.supporter },
         { $inc: { credits: c.amount } }
       );
     }

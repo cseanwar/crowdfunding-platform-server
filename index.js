@@ -13,12 +13,17 @@ const reportRoutes = require('./routes/reports');
 const userRoutes = require('./routes/users');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+}));
 app.use(express.json());
 
 MongoClient.connect(process.env.MONGODB_URI)
   .then(client => {
-    app.locals.db = client.db('crowdfunding');
+    app.locals.db = client.db(process.env.DB_NAME || 'crowdfunding');
     console.log('MongoDB connected');
   })
   .catch(err => {

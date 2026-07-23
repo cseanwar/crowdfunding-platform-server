@@ -26,7 +26,7 @@ router.post('/create-payment-intent', auth, async (req, res) => {
       amount: selected.amount * 100,
       currency: 'usd',
       metadata: {
-        userId: req.user._id.toString(),
+        userId: req.user.id,
         credits: selected.credits.toString(),
         package: pkg,
       },
@@ -48,7 +48,7 @@ router.post('/confirm', auth, async (req, res) => {
     if (existing) return res.status(400).json({ message: 'Payment already processed' });
 
     await db.collection('payments').insertOne({
-      user: req.user._id.toString(),
+      user: req.user.id,
       package: pkg,
       credits: selected.credits,
       amount: selected.amount,
@@ -56,8 +56,8 @@ router.post('/confirm', auth, async (req, res) => {
       createdAt: new Date(),
     });
 
-    await db.collection('users').updateOne(
-      { _id: new ObjectId(req.user._id) },
+    await db.collection('user').updateOne(
+      { id: req.user.id },
       { $inc: { credits: selected.credits } }
     );
 
@@ -71,7 +71,7 @@ router.get('/history', auth, async (req, res) => {
   try {
     const db = req.app.locals.db;
     const payments = await db.collection('payments')
-      .find({ user: req.user._id.toString() })
+      .find({ user: req.user.id })
       .sort({ createdAt: -1 }).toArray();
     res.json(payments);
   } catch (err) {
