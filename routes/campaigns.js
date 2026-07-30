@@ -8,11 +8,49 @@ const router = express.Router();
 router.get('/', async (req, res) => {
   try {
     const db = req.app.locals.db;
-    const filter = { status: 'approved' };
-    if (req.query.category) filter.category = req.query.category;
-    const campaigns = await db.collection('campaigns').find(filter)
-      .sort({ raised: -1 }).toArray();
-    res.json(campaigns);
+    const filter = {};
+
+    // By default filter approved campaigns unless status param passed
+    if (req.query.status) {
+      filter.status = req.query.status;
+    } else {
+      filter.status = 'approved';
+    }
+
+    if (req.query.category && req.query.category !== 'All') {
+      filter.category = req.query.category;
+    }
+
+    if (req.query.search) {
+      filter.title = { $regex: req.query.search, $options: 'i' };
+    }
+
+    if (req.query.paginate === 'false') {
+      const allCampaigns = await db.collection('campaigns').find(filter).sort({ raised: -1 }).toArray();
+      return res.json(allCampaigns);
+    }
+
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.max(1, parseInt(req.query.limit, 10) || 8);
+    const skip = (page - 1) * limit;
+
+    const total = await db.collection('campaigns').countDocuments(filter);
+    const campaigns = await db.collection('campaigns')
+      .find(filter)
+      .sort({ raised: -1 })
+      .skip(skip)
+      .limit(limit)
+      .toArray();
+
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    res.json({
+      campaigns,
+      total,
+      page,
+      totalPages,
+      limit,
+    });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
