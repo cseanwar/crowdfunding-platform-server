@@ -56,11 +56,12 @@ router.post('/', auth, supporter, async (req, res) => {
     const campaign = await db.collection('campaigns').findOne({ _id: new ObjectId(campaignId) });
     if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
 
-    const user = await db.collection('user').findOne({ id: req.user.id });
+    const user = await db.collection('user').findOne({ _id: new ObjectId(req.user.id) });
+    if (!user) return res.status(404).json({ message: 'User not found' });
     if (user.credits < amount) return res.status(400).json({ message: 'Insufficient credits' });
 
     await db.collection('user').updateOne(
-      { id: req.user.id },
+      { _id: new ObjectId(req.user.id) },
       { $inc: { credits: -amount } }
     );
 
@@ -136,7 +137,7 @@ router.patch('/:id/reject', auth, creator, async (req, res) => {
       { $set: { status: 'rejected' } }
     );
     await db.collection('user').updateOne(
-      { id: contribution.supporter },
+      { _id: new ObjectId(contribution.supporter) },
       { $inc: { credits: contribution.amount } }
     );
     await db.collection('notifications').insertOne({

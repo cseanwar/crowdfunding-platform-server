@@ -57,7 +57,7 @@ router.post('/confirm', auth, async (req, res) => {
     });
 
     await db.collection('user').updateOne(
-      { id: req.user.id },
+      { _id: new ObjectId(req.user.id) },
       { $inc: { credits: selected.credits } }
     );
 

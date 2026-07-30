@@ -121,7 +121,7 @@ router.delete('/:id', auth, async (req, res) => {
       .find({ campaign: req.params.id, status: 'approved' }).toArray();
     for (const c of approved) {
       await db.collection('user').updateOne(
-        { id: c.supporter },
+        { _id: new ObjectId(c.supporter) },
         { $inc: { credits: c.amount } }
       );
     }
