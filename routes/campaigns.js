@@ -136,13 +136,22 @@ router.delete('/:id', auth, async (req, res) => {
 router.patch('/:id/approve', auth, admin, async (req, res) => {
   try {
     const db = req.app.locals.db;
-    const result = await db.collection('campaigns').findOneAndUpdate(
+    const campaign = await db.collection('campaigns').findOne({ _id: new ObjectId(req.params.id) });
+    if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
+
+    await db.collection('campaigns').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: { status: 'approved' } },
-      { returnDocument: 'after' }
+      { $set: { status: 'approved' } }
     );
-    if (!result) return res.status(404).json({ message: 'Campaign not found' });
-    res.json(result);
+
+    await db.collection('notifications').insertOne({
+      message: `Your campaign "${campaign.title}" was approved by ${req.user.name}`,
+      toEmail: campaign.creatorEmail,
+      actionRoute: '/dashboard/creator-home',
+      createdAt: new Date(),
+    });
+
+    res.json({ ...campaign, status: 'approved' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -151,13 +160,22 @@ router.patch('/:id/approve', auth, admin, async (req, res) => {
 router.patch('/:id/reject', auth, admin, async (req, res) => {
   try {
     const db = req.app.locals.db;
-    const result = await db.collection('campaigns').findOneAndUpdate(
+    const campaign = await db.collection('campaigns').findOne({ _id: new ObjectId(req.params.id) });
+    if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
+
+    await db.collection('campaigns').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: { status: 'rejected' } },
-      { returnDocument: 'after' }
+      { $set: { status: 'rejected' } }
     );
-    if (!result) return res.status(404).json({ message: 'Campaign not found' });
-    res.json(result);
+
+    await db.collection('notifications').insertOne({
+      message: `Your campaign "${campaign.title}" was rejected`,
+      toEmail: campaign.creatorEmail,
+      actionRoute: '/dashboard/creator-home',
+      createdAt: new Date(),
+    });
+
+    res.json({ ...campaign, status: 'rejected' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

@@ -58,6 +58,30 @@ router.post('/', auth, creator, async (req, res) => {
   }
 });
 
+router.patch('/:id/reject', auth, admin, async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const withdrawal = await db.collection('withdrawals').findOne({ _id: new ObjectId(req.params.id) });
+    if (!withdrawal) return res.status(404).json({ message: 'Withdrawal not found' });
+
+    await db.collection('withdrawals').updateOne(
+      { _id: new ObjectId(req.params.id) },
+      { $set: { status: 'rejected' } }
+    );
+
+    await db.collection('notifications').insertOne({
+      message: `Your withdrawal request for ${withdrawal.credits} credits ($${withdrawal.amount}) was rejected`,
+      toEmail: withdrawal.creatorEmail,
+      actionRoute: '/dashboard/creator-home',
+      createdAt: new Date(),
+    });
+
+    res.json({ ...withdrawal, status: 'rejected' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.patch('/:id/approve', auth, admin, async (req, res) => {
   try {
     const db = req.app.locals.db;
