@@ -11,6 +11,12 @@ const CREDIT_PACKAGES = {
   '1500': { credits: 1500, amount: 110 },
 };
 
+function getStripe() {
+  const secretKey = process.env.STRIPE_SECRET_KEY;
+  if (!secretKey) throw new Error('STRIPE_SECRET_KEY is not configured');
+  return require('stripe')(secretKey);
+}
+
 router.get('/packages', (req, res) => {
   res.json(CREDIT_PACKAGES);
 });
@@ -21,7 +27,7 @@ router.post('/create-payment-intent', auth, async (req, res) => {
     const selected = CREDIT_PACKAGES[pkg];
     if (!selected) return res.status(400).json({ message: 'Invalid package' });
 
-    const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+    const stripe = getStripe();
     const paymentIntent = await stripe.paymentIntents.create({
       amount: selected.amount * 100,
       currency: 'usd',
@@ -46,6 +52,25 @@ router.post('/confirm', auth, async (req, res) => {
 
     const existing = await db.collection('payments').findOne({ stripeId });
     if (existing) return res.status(400).json({ message: 'Payment already processed' });
+
+    // Verify with Stripe that this payment actually succeeded for this user/package
+    let intent;
+    try {
+      const stripe = getStripe();
+      intent = await stripe.paymentIntents.retrieve(stripeId);
+    } catch (err) {
+      return res.status(400).json({ message: 'Invalid payment id' });
+    }
+
+    if (intent.status !== 'succeeded') {
+      return res.status(400).json({ message: 'Payment not completed' });
+    }
+    if (intent.metadata?.userId !== req.user.id) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (intent.amount !== selected.amount * 100) {
+      return res.status(400).json({ message: 'Payment amount mismatch' });
+    }
 
     await db.collection('payments').insertOne({
       user: req.user.id,
