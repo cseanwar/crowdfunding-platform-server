@@ -141,6 +141,11 @@ router.put('/:id', auth, creator, async (req, res) => {
     if (req.body.title) update.title = req.body.title;
     if (req.body.story) update.story = req.body.story;
     if (req.body.reward) update.reward = req.body.reward;
+    if (req.body.category) update.category = req.body.category;
+    if (req.body.goal) update.goal = Number(req.body.goal);
+    if (req.body.minContribution) update.minContribution = Number(req.body.minContribution);
+    if (req.body.deadline) update.deadline = new Date(req.body.deadline);
+    if (req.body.image) update.image = req.body.image;
     await db.collection('campaigns').updateOne(
       { _id: new ObjectId(req.params.id) },
       { $set: update }
