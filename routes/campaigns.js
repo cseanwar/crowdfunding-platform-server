@@ -25,6 +25,11 @@ router.get('/', async (req, res) => {
       filter.title = { $regex: req.query.search, $options: 'i' };
     }
 
+    // Only campaigns whose deadline has not passed
+    if (req.query.active === 'true') {
+      filter.deadline = { $gte: new Date() };
+    }
+
     if (req.query.paginate === 'false') {
       const allCampaigns = await db.collection('campaigns').find(filter).sort({ raised: -1 }).toArray();
       return res.json(allCampaigns);
