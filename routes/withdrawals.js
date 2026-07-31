@@ -49,6 +49,7 @@ router.post('/', auth, creator, async (req, res) => {
       paymentSystem,
       account,
       status: 'pending',
+      withdrawDate: new Date(),
       createdAt: new Date(),
     };
     const result = await db.collection('withdrawals').insertOne(withdrawal);

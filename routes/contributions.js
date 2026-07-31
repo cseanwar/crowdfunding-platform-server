@@ -51,7 +51,7 @@ router.get('/approved', auth, supporter, async (req, res) => {
 router.post('/', auth, supporter, async (req, res) => {
   try {
     const db = req.app.locals.db;
-    const { campaignId, amount } = req.body;
+    const { campaignId, amount, message } = req.body;
 
     const campaign = await db.collection('campaigns').findOne({ _id: new ObjectId(campaignId) });
     if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
@@ -75,6 +75,7 @@ router.post('/', auth, supporter, async (req, res) => {
       creatorName: campaign.creatorName,
       creatorEmail: campaign.creatorEmail,
       amount: Number(amount),
+      message: message || '',
       status: 'pending',
       createdAt: new Date(),
     };
