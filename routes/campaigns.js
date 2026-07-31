@@ -224,4 +224,28 @@ router.patch('/:id/reject', auth, admin, async (req, res) => {
   }
 });
 
+router.patch('/:id/suspend', auth, admin, async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const campaign = await db.collection('campaigns').findOne({ _id: new ObjectId(req.params.id) });
+    if (!campaign) return res.status(404).json({ message: 'Campaign not found' });
+
+    await db.collection('campaigns').updateOne(
+      { _id: new ObjectId(req.params.id) },
+      { $set: { status: 'suspended' } }
+    );
+
+    await db.collection('notifications').insertOne({
+      message: `Your campaign "${campaign.title}" was suspended for policy violation`,
+      toEmail: campaign.creatorEmail,
+      actionRoute: '/dashboard/creator-home',
+      createdAt: new Date(),
+    });
+
+    res.json({ ...campaign, status: 'suspended' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 module.exports = router;

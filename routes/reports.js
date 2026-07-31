@@ -27,7 +27,23 @@ router.get('/', auth, admin, async (req, res) => {
     const db = req.app.locals.db;
     const reports = await db.collection('reports').find()
       .sort({ createdAt: -1 }).toArray();
-    res.json(reports);
+
+    const populated = await Promise.all(reports.map(async (report) => {
+      let reporterName = 'Unknown';
+      let campaignTitle = 'Unknown';
+      let campaign = null;
+      try {
+        const reporter = await db.collection('user').findOne({ _id: new ObjectId(report.reporter) });
+        if (reporter) reporterName = reporter.name;
+      } catch (e) { /* ignore */ }
+      try {
+        campaign = await db.collection('campaigns').findOne({ _id: new ObjectId(report.campaign) });
+        if (campaign) campaignTitle = campaign.title;
+      } catch (e) { /* ignore */ }
+      return { ...report, reporterName, campaignTitle, campaign };
+    }));
+
+    res.json(populated);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
