@@ -1,4 +1,7 @@
+const { jwtVerify } = require('jose');
 const { ObjectId } = require('mongodb');
+
+const getKey = () => new TextEncoder().encode(process.env.JWT_SECRET || 'dev-secret-change-me');
 
 const auth = async (req, res, next) => {
   try {
@@ -6,16 +9,12 @@ const auth = async (req, res, next) => {
     if (!header || !header.startsWith('Bearer ')) {
       return res.status(401).json({ message: 'No token provided' });
     }
-    const rawToken = header.split(' ')[1];
+    const token = header.split(' ')[1];
+
+    const { payload } = await jwtVerify(token, getKey(), { algorithms: ['HS256'] });
 
     const db = req.app.locals.db;
-
-    // Better Auth uses opaque session tokens — look it up in the session collection
-    const session = await db.collection('session').findOne({ token: rawToken });
-    if (!session) return res.status(401).json({ message: 'Invalid session' });
-    if (new Date(session.expiresAt) < new Date()) return res.status(401).json({ message: 'Session expired' });
-
-    const user = await db.collection('user').findOne({ _id: new ObjectId(session.userId) });
+    const user = await db.collection('user').findOne({ _id: new ObjectId(payload.id) });
     if (!user) return res.status(401).json({ message: 'User not found' });
 
     req.user = {
@@ -29,7 +28,7 @@ const auth = async (req, res, next) => {
     };
     next();
   } catch (err) {
-    console.error('Auth error:', err.message);
+    console.error('JWT auth error:', err.message);
     res.status(401).json({ message: 'Invalid token' });
   }
 };

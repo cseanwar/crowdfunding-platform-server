@@ -1,0 +1,38 @@
+const { ObjectId } = require('mongodb');
+
+// Used only by the token-exchange endpoint: verifies the Better Auth
+// opaque session token against the session collection and attaches the user.
+const sessionAuth = async (req, res, next) => {
+  try {
+    const header = req.headers.authorization;
+    if (!header || !header.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'No token provided' });
+    }
+    const rawToken = header.split(' ')[1];
+
+    const db = req.app.locals.db;
+
+    const session = await db.collection('session').findOne({ token: rawToken });
+    if (!session) return res.status(401).json({ message: 'Invalid session' });
+    if (new Date(session.expiresAt) < new Date()) return res.status(401).json({ message: 'Session expired' });
+
+    const user = await db.collection('user').findOne({ _id: new ObjectId(session.userId) });
+    if (!user) return res.status(401).json({ message: 'User not found' });
+
+    req.user = {
+      _id: user._id.toString(),
+      id: user._id.toString(),
+      name: user.name,
+      email: user.email,
+      role: user.role || 'supporter',
+      credits: user.credits || 0,
+      photo: user.image || '',
+    };
+    next();
+  } catch (err) {
+    console.error('Session auth error:', err.message);
+    res.status(401).json({ message: 'Invalid token' });
+  }
+};
+
+module.exports = sessionAuth;
