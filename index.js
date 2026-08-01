@@ -3,6 +3,17 @@ const express = require('express');
 const { MongoClient } = require('mongodb');
 const cors = require('cors');
 
+// Serverless safety net: the Mongo driver's background monitor can emit
+// unhandled rejections (e.g. "SocketError: other side closed") when Atlas is
+// unreachable. Without these guards, that crashes the Vercel function with
+// FUNCTION_INVOCATION_FAILED. Log and swallow instead of dying.
+process.on('unhandledRejection', (reason) => {
+  console.error('Unhandled rejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+
 const authRoutes = require('./routes/auth');
 const campaignRoutes = require('./routes/campaigns');
 const contributionRoutes = require('./routes/contributions');
