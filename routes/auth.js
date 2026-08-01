@@ -1,25 +1,28 @@
 const express = require('express');
-const { SignJWT } = require('jose');
+const jwt = require('jsonwebtoken');
 const auth = require('../middleware/auth');
 const sessionAuth = require('../middleware/sessionAuth');
 
 const router = express.Router();
 
-const getKey = () => new TextEncoder().encode(process.env.JWT_SECRET || 'dev-secret-change-me');
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 
 // Exchange a valid Better Auth session token for a signed JWT.
 // Protects the rest of the API with JWT-based auth.
+// NOTE: uses jsonwebtoken (CommonJS) instead of jose (pure ESM) so this file
+// loads in Vercel's CommonJS serverless runtime. HS256 signatures are fully
+// interoperable with the client's jose-issued tokens.
 router.post('/token', sessionAuth, async (req, res) => {
   try {
-    const token = await new SignJWT({
-      id: req.user.id,
-      role: req.user.role,
-      email: req.user.email,
-    })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setIssuedAt()
-      .setExpirationTime('7d')
-      .sign(getKey());
+    const token = jwt.sign(
+      {
+        id: req.user.id,
+        role: req.user.role,
+        email: req.user.email,
+      },
+      JWT_SECRET,
+      { algorithm: 'HS256', expiresIn: '7d' }
+    );
 
     res.json({ token });
   } catch (err) {

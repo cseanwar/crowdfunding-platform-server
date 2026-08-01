@@ -1,7 +1,7 @@
-const { jwtVerify } = require('jose');
+const jwt = require('jsonwebtoken');
 const { ObjectId } = require('mongodb');
 
-const getKey = () => new TextEncoder().encode(process.env.JWT_SECRET || 'dev-secret-change-me');
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 
 const auth = async (req, res, next) => {
   try {
@@ -11,7 +11,7 @@ const auth = async (req, res, next) => {
     }
     const token = header.split(' ')[1];
 
-    const { payload } = await jwtVerify(token, getKey(), { algorithms: ['HS256'] });
+    const payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
 
     const db = req.app.locals.db;
     const user = await db.collection('user').findOne({ _id: new ObjectId(payload.id) });
