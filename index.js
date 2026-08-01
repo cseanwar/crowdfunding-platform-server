@@ -13,23 +13,51 @@ const reportRoutes = require('./routes/reports');
 const userRoutes = require('./routes/users');
 
 const app = express();
+
+const localOrigins = ['http://localhost:3000', 'http://localhost:3001'];
+const clientOrigins = (process.env.CLIENT_URL || '')
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean);
+
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  origin: [...localOrigins, ...clientOrigins],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 app.use(express.json());
 
-MongoClient.connect(process.env.MONGODB_URI)
-  .then(client => {
-    app.locals.db = client.db(process.env.DB_NAME || 'crowdfunding');
-    console.log('MongoDB connected');
-  })
-  .catch(err => {
+// Cache the Mongo connection across serverless invocations (Vercel reuses the
+// same lambda instance for warm calls). Never process.exit() — that kills the
+// function. Fail requests with a 500 instead.
+let dbPromise;
+function connectDb() {
+  if (!dbPromise) {
+    if (!process.env.MONGODB_URI) {
+      dbPromise = Promise.reject(new Error('MONGODB_URI is not set'));
+    } else {
+      dbPromise = MongoClient.connect(process.env.MONGODB_URI)
+        .then((client) => {
+          const db = client.db(process.env.DB_NAME || 'crowdfunding');
+          db.once?.('close', () => { dbPromise = null; });
+          return db;
+        });
+    }
+  }
+  return dbPromise;
+}
+
+// Guarantee req.app.locals.db is set before any route handler runs.
+app.use(async (req, res, next) => {
+  try {
+    req.app.locals.db = await connectDb();
+    next();
+  } catch (err) {
     console.error('MongoDB error:', err);
-    process.exit(1);
-  });
+    res.status(500).json({ message: 'Database unavailable' });
+  }
+});
 
 app.use('/api/auth', authRoutes);
 app.use('/api/campaigns', campaignRoutes);
@@ -63,5 +91,11 @@ app.get('/api/debug-auth', async (req, res) => {
   });
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+// Vercel serverless: export the app instead of calling app.listen().
+// The PORT branch is only used when running locally (node index.js).
+if (require.main === module) {
+  const PORT = process.env.PORT || 5000;
+  app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+}
+
+module.exports = app;
