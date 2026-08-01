@@ -16,6 +16,42 @@ router.get('/', auth, admin, async (req, res) => {
   }
 });
 
+router.get('/me', auth, async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const user = await db.collection('user').findOne(
+      { _id: new ObjectId(req.user.id) },
+      { projection: { password: 0 } }
+    );
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+router.patch('/me', auth, async (req, res) => {
+  try {
+    const db = req.app.locals.db;
+    const updates = {};
+    if (typeof req.body.name === 'string' && req.body.name.trim()) {
+      updates.name = req.body.name.trim();
+    }
+    if (typeof req.body.image === 'string' && req.body.image.trim()) {
+      updates.image = req.body.image.trim();
+    }
+    const result = await db.collection('user').findOneAndUpdate(
+      { _id: new ObjectId(req.user.id) },
+      { $set: updates },
+      { returnDocument: 'after', projection: { password: 0 } }
+    );
+    if (!result) return res.status(404).json({ message: 'User not found' });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.patch('/:id/role', auth, admin, async (req, res) => {
   try {
     const db = req.app.locals.db;

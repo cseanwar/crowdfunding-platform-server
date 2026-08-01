@@ -37,8 +37,15 @@ router.post('/', auth, creator, async (req, res) => {
       .find({ creator: req.user.id, status: 'approved' }).toArray();
     const totalRaised = campaigns.reduce((sum, c) => sum + c.raised, 0);
 
-    if (totalRaised < 200) return res.status(400).json({ message: 'Minimum 200 credits required' });
-    if (credits > totalRaised) return res.status(400).json({ message: 'Insufficient credits' });
+    const pendingWithdrawals = await db.collection('withdrawals')
+      .find({ creator: req.user.id, status: 'pending' }).toArray();
+    const pendingCredits = pendingWithdrawals.reduce((sum, w) => sum + w.credits, 0);
+    const available = totalRaised - pendingCredits;
+
+    if (available < 200) return res.status(400).json({ message: 'Minimum 200 credits required' });
+    if (credits > available) {
+      return res.status(400).json({ message: `Insufficient available credits — ${pendingCredits} credits are already pending review` });
+    }
 
     const withdrawal = {
       creator: req.user.id,
